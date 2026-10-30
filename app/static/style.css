@@ -1,0 +1,53 @@
+/* Custom styles for Urja Gateway Web Client */
+
+.active-tab {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.tree-node {
+  margin-left: 1.25rem;
+  border-left: 1px dashed #cbd5e1;
+  padding-left: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.tree-header {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+}
+
+.tree-header:hover {
+  background-color: #f1f5f9;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-installed {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.badge-faulty {
+  background-color: #ffe4e6;
+  color: #be123c;
+}
+
+.badge-decommissioned {
+  background-color: #fef3c7;
+  color: #b45309;
+}

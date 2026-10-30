@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Urja Meter Ops — Modern Integration Gateway</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 flex flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 bg-amber-500 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
+          ⚡
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight leading-none">Urja Meter Gateway</h1>
+          <p class="text-xs text-slate-500 mt-0.5">Distribution Utility Operations & Telemetry API</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-100 p-1 rounded-xl text-sm font-medium">
+        <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 active-tab">Overview</button>
+        <button onclick="switchTab('meters')" id="tab-meters" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Meters</button>
+        <button onclick="switchTab('map')" id="tab-map" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Live Map</button>
+        <button onclick="switchTab('hierarchy')" id="tab-hierarchy" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Grid Hierarchy</button>
+        <button onclick="switchTab('transformers')" id="tab-transformers" class="tab-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900">Transformers</button>
+      </nav>
+
+      <!-- Sync & Docs -->
+      <div class="flex items-center space-x-3">
+        <button onclick="triggerSync()" id="sync-btn" class="flex items-center space-x-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg transition-colors border border-slate-200 font-medium">
+          <span id="sync-icon">🔄</span>
+          <span id="sync-text">Sync Portal</span>
+        </button>
+        <a href="/docs" target="_blank" class="text-xs bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg transition-colors font-medium">
+          OpenAPI Docs →
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="view-overview" class="space-y-6">
+      <!-- KPI Stats Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Meters</span>
+          <p id="stat-total" class="text-2xl font-bold text-slate-900 mt-1">—</p>
+          <span class="text-xs text-slate-400">Indexed in memory</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-emerald-600 uppercase tracking-wider">Installed</span>
+          <p id="stat-installed" class="text-2xl font-bold text-emerald-600 mt-1">—</p>
+          <span class="text-xs text-slate-400">Normal operations</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-rose-600 uppercase tracking-wider">Faulty</span>
+          <p id="stat-faulty" class="text-2xl font-bold text-rose-600 mt-1">—</p>
+          <span class="text-xs text-slate-400">Requires dispatch</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-amber-600 uppercase tracking-wider">Decommissioned</span>
+          <p id="stat-decomm" class="text-2xl font-bold text-amber-600 mt-1">—</p>
+          <span class="text-xs text-slate-400">Retired from grid</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-sky-600 uppercase tracking-wider">Transformers</span>
+          <p id="stat-dts" class="text-2xl font-bold text-sky-600 mt-1">—</p>
+          <span class="text-xs text-slate-400">Distribution nodes</span>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <span class="text-xs font-medium text-purple-600 uppercase tracking-wider">Cache Status</span>
+          <p id="stat-cache" class="text-sm font-bold text-purple-600 mt-2">Checking...</p>
+          <span id="stat-synced-at" class="text-xs text-slate-400">Last sync: —</span>
+        </div>
+      </div>
+
+      <!-- Quick Feature Showcase Cards -->
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all cursor-pointer" onclick="switchTab('meters')">
+          <div class="text-blue-600 text-xl mb-2">🔍 Multi-Attribute Query Layer</div>
+          <h3 class="font-semibold text-slate-900 mb-1">Beyond Portal Search</h3>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            The legacy portal only queries meter ID & serial number. This service indexes make, phase, status, installation type, feeder, and DT codes for instant compound filtering.
+          </p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all cursor-pointer" onclick="switchTab('map')">
+          <div class="text-emerald-600 text-xl mb-2">📍 Geospatial Proximity</div>
+          <h3 class="font-semibold text-slate-900 mb-1">Radius & Location Search</h3>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Find all smart meters near field crews using haversine spherical distance queries (<code class="bg-slate-100 px-1 py-0.5 rounded">/api/v1/meters/nearby</code>) with interactive map inspection.
+          </p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-slate-300 transition-all cursor-pointer" onclick="switchTab('hierarchy')">
+          <div class="text-amber-600 text-xl mb-2">🌳 Grid Topology Tree</div>
+          <h3 class="font-semibold text-slate-900 mb-1">Reconstructed Hierarchy</h3>
+          <p class="text-xs text-slate-500 leading-relaxed">
+            Automatic reconstruction of the 7-tier distribution network (Zone → Circle → Division → Subdivision → Substation → Feeder → DT) with roll-up meter counts.
+          </p>
+        </div>
+      </div>
+
+      <!-- Chart Breakdown Section -->
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-4">Meter Status & Phase Distribution</h3>
+          <div class="h-64 flex items-center justify-center">
+            <canvas id="overviewStatusChart"></canvas>
+          </div>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+          <h3 class="text-sm font-bold text-slate-700 mb-4">Manufacturer (Make) Breakdown</h3>
+          <div class="h-64 flex items-center justify-center">
+            <canvas id="overviewMakeChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: METERS EXPLORER -->
+    <div id="view-meters" class="hidden space-y-4">
+      <!-- Filter Bar -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap gap-3 items-center justify-between">
+        <div class="flex-1 min-w-[240px]">
+          <input type="text" id="filter-search" oninput="debounceMeters()" placeholder="Search meter ID, serial, make, DT, or feeder..." class="w-full text-sm px-3.5 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900">
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs">
+          <select id="filter-status" onchange="loadMeters(1)" class="px-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none">
+            <option value="">All Statuses</option>
+            <option value="Installed">Installed</option>
+            <option value="Faulty">Faulty</option>
+            <option value="Decommissioned">Decommissioned</option>
+          </select>
+          <select id="filter-phase" onchange="loadMeters(1)" class="px-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none">
+            <option value="">All Phases</option>
+            <option value="single">Single Phase</option>
+            <option value="three">Three Phase</option>
+          </select>
+          <select id="filter-make" onchange="loadMeters(1)" class="px-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none">
+            <option value="">All Makes</option>
+            <option value="HPL">HPL</option>
+            <option value="Genus">Genus</option>
+            <option value="Secure">Secure</option>
+            <option value="Allied">Allied</option>
+            <option value="L&T">L&T</option>
+          </select>
+          <select id="filter-build" onchange="loadMeters(1)" class="px-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:outline-none">
+            <option value="">All Builds</option>
+            <option value="legacy">Legacy Build</option>
+            <option value="v2">v2 Build</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Table Container -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+              <tr>
+                <th class="px-4 py-3">Meter ID</th>
+                <th class="px-4 py-3">Serial No</th>
+                <th class="px-4 py-3">Make</th>
+                <th class="px-4 py-3">Phase</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">DT Code</th>
+                <th class="px-4 py-3">Feeder</th>
+                <th class="px-4 py-3">Build</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="meters-table-body" class="divide-y divide-slate-100">
+              <tr><td colspan="9" class="px-4 py-8 text-center text-slate-400">Loading meters...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+          <div>
+            Showing <span id="page-start">0</span>–<span id="page-end">0</span> of <span id="page-total">0</span> meters
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="btn-prev" onclick="prevPage()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40">Previous</button>
+            <span id="page-indicator">Page 1 of 1</span>
+            <button id="btn-next" onclick="nextPage()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded hover:bg-slate-100 disabled:opacity-40">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: LIVE MAP -->
+    <div id="view-map" class="hidden space-y-4">
+      <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between text-xs">
+        <div class="flex items-center space-x-4">
+          <span class="font-medium text-slate-700">Map Legend:</span>
+          <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> <span>Installed</span></span>
+          <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span> <span>Faulty</span></span>
+          <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> <span>Decommissioned</span></span>
+        </div>
+        <div class="text-slate-400">Click any meter marker to view details and consumption</div>
+      </div>
+      <div id="map-container" class="w-full h-[600px] rounded-xl border border-slate-200 shadow-sm"></div>
+    </div>
+
+    <!-- TAB 4: HIERARCHY EXPLORER -->
+    <div id="view-hierarchy" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-bold text-slate-900">Utility Grid Topology Tree</h2>
+          <p class="text-xs text-slate-500">Reconstructed 7-tier distribution network hierarchy with meter roll-up counts.</p>
+        </div>
+        <button onclick="loadHierarchy()" class="text-xs bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-slate-200 font-medium">
+          Refresh Tree
+        </button>
+      </div>
+      <div id="hierarchy-tree-container" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm font-mono text-xs overflow-x-auto space-y-2">
+        Loading hierarchy tree...
+      </div>
+    </div>
+
+    <!-- TAB 5: TRANSFORMERS -->
+    <div id="view-transformers" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-bold text-slate-900">Distribution Transformers (DTs)</h2>
+          <p class="text-xs text-slate-500">Grid step-down transformers and connected smart meter counts.</p>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50 text-xs uppercase font-semibold text-slate-500 border-b border-slate-200">
+            <tr>
+              <th class="px-4 py-3">Code</th>
+              <th class="px-4 py-3">DT Name</th>
+              <th class="px-4 py-3">Feeder Code</th>
+              <th class="px-4 py-3">Capacity (kVA)</th>
+              <th class="px-4 py-3">Connected Meters</th>
+            </tr>
+          </thead>
+          <tbody id="transformers-table-body" class="divide-y divide-slate-100">
+            <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Loading transformers...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- METER DETAIL & CONSUMPTION MODAL -->
+  <div id="meter-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
+      <div class="p-5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div>
+          <h3 id="modal-meter-title" class="text-lg font-bold text-slate-900">Meter Details</h3>
+          <p id="modal-meter-subtitle" class="text-xs text-slate-500 mt-0.5">Telemetry & Consumption Interval Analysis</p>
+        </div>
+        <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900">✕</button>
+      </div>
+
+      <div class="p-6 space-y-6">
+        <!-- Nameplate Attributes Grid -->
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Nameplate & Metadata</h4>
+          <div id="modal-nameplate" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+        </div>
+
+        <!-- Hierarchy Breadcrumb -->
+        <div>
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Grid Network Path</h4>
+          <div id="modal-hierarchy-path" class="flex flex-wrap gap-1.5 text-xs text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-200"></div>
+        </div>
+
+        <!-- Consumption Chart & Stats -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Interval Consumption (kWh) & Voltage</h4>
+            <div id="modal-consumption-stats" class="text-xs text-slate-500 font-medium"></div>
+          </div>
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 h-64">
+            <canvas id="consumptionChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
